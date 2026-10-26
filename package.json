@@ -1,0 +1,19 @@
+{
+  "name": "pr-guardian",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Autonomous Codebase & Pull Request Reviewer with AST indexing, pgvector, LangGraph specialist agents, and Human Approval Interrupt",
+  "scripts": {
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:ai": "cd ai-engine && python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload",
+    "test:ai": "cd ai-engine && .venv/bin/python test_ai_engine.py",
+    "test:integration": "node scripts/test_integration.js",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install && cd ../ai-engine && pip install -r requirements.txt",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down"
+  },
+  "keywords": ["langgraph", "pgvector", "pull-request-reviewer", "ast-chunking", "multi-agent", "devtools"],
+  "author": "PR-Guardian Team",
+  "license": "MIT"
+}

@@ -1,0 +1,100 @@
+version: '3.8'
+
+services:
+  # PostgreSQL with pgvector extension enabled for code embeddings & LangGraph checkpoints
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: pr-guardian-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: pr_guardian
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-postgres.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pr_guardian"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # MongoDB for raw GitHub webhook payloads, full git diffs, and LLM execution traces
+  mongodb:
+    image: mongo:7.0
+    container_name: pr-guardian-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: pr_guardian
+    volumes:
+      - mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # AI Engine (Python 3.13 + LangGraph + Tree-Sitter + pgvector)
+  ai-engine:
+    build:
+      context: ./ai-engine
+      dockerfile: Dockerfile
+    container_name: pr-guardian-ai-engine
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - DATABASE_URL=postgresql://postgres:postgrespassword@postgres:5432/pr_guardian
+      - MONGODB_URI=mongodb://mongodb:27017/pr_guardian
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+
+  # Node.js Ingestion Gateway & SSE Hub
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pr-guardian-backend
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+      - AI_ENGINE_URL=http://ai-engine:8000
+      - MONGODB_URI=mongodb://mongodb:27017/pr_guardian
+      - POSTGRES_URL=postgresql://postgres:postgrespassword@postgres:5432/pr_guardian
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-dev_secret}
+    depends_on:
+      - ai-engine
+      - mongodb
+
+  # React Frontend (Split-Diff Viewer & HITL Approvals)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pr-guardian-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:5001
+      - VITE_AI_ENGINE_URL=http://localhost:8000
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  mongodata:
