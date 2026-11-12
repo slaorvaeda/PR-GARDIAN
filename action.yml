@@ -1,0 +1,69 @@
+name: 'PR-Guardian Autonomous Pull Request Reviewer'
+description: 'Autonomous codebase & PR reviewer using AST chunking, parallel specialist agents, and Critic filter'
+author: 'Priyanshu Nayak'
+
+branding:
+  icon: 'shield'
+  color: 'green'
+
+inputs:
+  github-token:
+    description: 'GitHub token for fetching diff and posting comments'
+    required: true
+    default: ${{ github.token }}
+  gemini-api-key:
+    description: 'Google Gemini API key for dynamic LLM reasoning'
+    required: false
+    default: ''
+  openai-api-key:
+    description: 'OpenAI API key for embeddings and reviews'
+    required: false
+    default: ''
+  min-confidence:
+    description: 'Minimum confidence score for Critic filter (0.0 to 1.0)'
+    required: false
+    default: '0.85'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
+    - name: Install Dependencies
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r ${{ github.action_path }}/ai-engine/requirements.txt
+
+    - name: Extract Pull Request Diff
+      shell: bash
+      run: |
+        git diff origin/${{ github.base_ref }}...HEAD > pr.diff
+
+    - name: Run Multi-Agent Audit
+      shell: bash
+      env:
+        GEMINI_API_KEY: ${{ inputs.gemini-api-key }}
+        OPENAI_API_KEY: ${{ inputs.openai-api-key }}
+        CRITIC_MIN_CONFIDENCE: ${{ inputs.min-confidence }}
+      run: |
+        python ${{ github.action_path }}/scripts/ci_reviewer.py pr.diff
+
+    - name: Post Review Summary
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const fs = require('fs');
+          if (fs.existsSync('review_summary.md')) {
+            const body = fs.readFileSync('review_summary.md', 'utf8');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
+          }
