@@ -51,3 +51,4 @@ mongodata/
 *.log
 pr.diff
 review_summary.md
+Gemini_Generated_Image_*.png

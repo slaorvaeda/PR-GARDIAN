@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./assets/logo.jpg" alt="PR-Guardian AI Code Review Platform Logo" width="680" style="border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.6);" />
+</p>
+
 # 🛡️ PR-Guardian v2: Autonomous Codebase & Pull Request Reviewer
 
 [![LangGraph](https://img.shields.io/badge/Orchestration-LangGraph_v2-blue.svg)](https://github.com/langchain-ai/langgraph)
